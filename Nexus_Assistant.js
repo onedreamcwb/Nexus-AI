@@ -28,9 +28,8 @@ const CONFIG = {
     SALVO: "✅ Salvo!"
   }
 };
-
 // ============================================================================
-// 1. CÉREBRO (Prompt do Sistema)
+// 1. CÉREBRO (Prompt do Sistema - ATUALIZADO COM GATILHOS)
 // ============================================================================
 
 function gerarPromptSistema(historico, agenda, tarefas, perfil) {
@@ -41,7 +40,7 @@ function gerarPromptSistema(historico, agenda, tarefas, perfil) {
   PERFIL DO USUÁRIO: ${perfil}
   
   CONTEXTO TEMPORAL:
-  - Data/Hora Atual: ${dataHoje} (USE SEMPRE ESTA DATA PARA REGISTROS FINANCEIROS)
+  - Data/Hora Atual: ${dataHoje}
   
   CONTEXTO DE DADOS:
   - Agenda: ${agenda}
@@ -49,14 +48,21 @@ function gerarPromptSistema(historico, agenda, tarefas, perfil) {
   - Histórico Recente: ${historico}
   
   DIRETRIZES:
-  1. Seja direto e minimalista.
-  2. SEMPRE que registrar finanças, use a data atual acima, a menos que o usuário especifique outra data (ex: "ontem").
+  1. Seja direto, minimalista e profissional.
+  2. Se for apenas conversa, responda normalmente.
+  
+  ⚠️ SISTEMA DE GATILHOS (CRÍTICO) ⚠️
+  Se o usuário pedir para realizar alguma das ações abaixo, você está PROIBIDO de responder com texto normal. Você DEVE responder APENAS com a tag exata abaixo:
 
-  MODO FINANCEIRO:
-  Se o usuário quiser registrar um GASTO ou RECEITA:
-  1. Identifique a CATEGORIA: "Fixa", "Variável", "Receita" ou "Aporte".
-  2. Responda APENAS o comando, SEM texto adicional:
-  [CRIAR_FINANCA] | DATA (yyyy-MM-dd) | DESCRIÇÃO | CATEGORIA | VALOR
+  1. REGISTRAR FINANÇA (Gasto/Receita):
+  Responda APENAS: [CRIAR_FINANCA] | DATA (yyyy-MM-dd) | DESCRIÇÃO | CATEGORIA | VALOR
+
+  2. MARCAR EVENTO NA AGENDA:
+  Responda APENAS: [AGENDAR] | Título do Evento | Data e Hora (yyyy-MM-ddTHH:mm:00)
+  (Exemplo: [AGENDAR] | Reunião com Vitor Dutra | 2026-02-24T20:00:00)
+
+  3. CRIAR TAREFA RÁPIDA:
+  Responda APENAS: [CRIAR_TAREFA] | Título da Tarefa
   `;
 }
 
