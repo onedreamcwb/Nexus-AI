@@ -1,6 +1,6 @@
 <div align="center">
   
-  <img src="LINK_DA_IMAGEM_BANNER_AQUI" alt="Nexus AI Banner" width="100%">
+  <img src="Assets/Banner.png" alt="Nexus AI Banner" width="100%">
 
   # 🤖 Nexus AI - Assistente Executivo e Segundo Cérebro
   
@@ -24,7 +24,7 @@ A gestão diária de tarefas, controle financeiro e caixa de entrada tomam muito
 O motor principal (Gemini 2.5 Flash Multimodal) analisa fotos de notas fiscais, agrupa os itens por contexto e gera múltiplas inserções no Google Sheets com alta granularidade, separando itens automaticamente (ex: Bebidas, Lanches, Sobremesas).
 
 <div align="center">
-  <img src="LINK_DA_IMAGEM_FINANCEIRO_AQUI" alt="Demonstração do OCR Financeiro" width="80%">
+  <img src="Assets/Financeiro.png" alt="Demonstração do OCR Financeiro" width="80%">
   <br>
   <i>Exemplo: Leitura de cupom fiscal gerando múltiplas linhas categorizadas (incluindo a Coluna F de Subcategorias).</i>
 </div>
@@ -33,20 +33,31 @@ O motor principal (Gemini 2.5 Flash Multimodal) analisa fotos de notas fiscais, 
 Gestão visual de prioridades. O usuário envia uma tarefa e o Nexus exibe um menu interativo no Telegram para classificar a urgência e importância. A tarefa é automaticamente criada na lista correta do Google Tasks (ex: Q1 - Urgente e Importante).
 
 <div align="center">
-  <img src="LINK_DA_IMAGEM_MATRIZ_AQUI" alt="Menu da Matriz de Eisenhower" width="50%">
+  <img src="Assets/Matriz.png" alt="Menu da Matriz de Eisenhower" width="50%">
+  <br>
+    <i>Exemplo: Exemplo: Comando "/Tarefa", o usuário escolhe nivel de importância, Digita Titulo e Detalhes e a Tarefa é adicionada no Google Tasks</i>
 </div>
 
 ### 🎙️ 3. Transcrição de Áudio e NLP
 O Nexus processa mensagens de voz (`.ogg` do Telegram), converte para Base64 e utiliza a API do Gemini para transcrever e interpretar intenções (agendamentos, insights, anotações).
 
 <div align="center">
-  <img src="LINK_DA_IMAGEM_AUDIO_AQUI" alt="Transcrição de Áudio" width="50%">
+  <img src="Assets/Audio.png" alt="Transcrição de Áudio" width="50%">
+  <br>
+<i>Exemplo: Exemplo: Comando "/Tarefa", o usuário escolhe nivel de importância, Digita Titulo e Detalhes e a Tarefa é adicionada no Google Tasks</i>
+
 </div>
 
 ### 📧 4. Secretário Virtual (Gmail & Calendar)
 * **Briefing Matinal:** Puxa eventos do Google Calendar e e-mails não lidos, gerando um resumo executivo por IA no início do dia.
 * **Auto-Drafts:** Monitora remetentes VIPs no Gmail e cria rascunhos de resposta automáticos baseados no contexto da mensagem.
 
+<div align="center">
+  <img src="Assets/Briefing_Matinal.png" alt="Transcrição de Áudio" width="50%">
+  <br>
+  <i>Exemplo: o <b>Nexus AI</b> Manda os relatórios Matinais contendo Mindset, Agenda do dia, Prioridades do dia e os 3 E-mails mais importantes, respondendo automatico os E-mails cadastrados como VIPS </b></i>
+</div>
+  <br>
 ---
 
 ## ⚙️ Arquitetura do Projeto
