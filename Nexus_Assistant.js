@@ -63,6 +63,9 @@ function gerarPromptSistema(historico, agenda, tarefas, perfil) {
 
   3. CRIAR TAREFA RÁPIDA:
   [CRIAR_TAREFA] | Título da Tarefa
+
+  4. BUSCAR/LEMBRAR UM INSIGHT OU ANOTAÇÃO:
+  [BUSCAR_INSIGHT] | Termo principal da busca
   `;
 }
 
@@ -128,7 +131,7 @@ function doPost(e) {
     const prompt = gerarPromptSistema(historico, agenda, tarefas, perfil);
     const respostaIA = GEMINI(prompt + "\nUsuário: " + textoUsuario);
 
-    // Roteamento de Ações
+ // Roteamento de Ações
     if (respostaIA.includes("[AGENDAR]")) {
       const p = respostaIA.split("|");
       enviarMensagemTelegram(chatId, criarEventoAgenda(p[1].trim(), p[2].trim()));
@@ -138,6 +141,9 @@ function doPost(e) {
     } else if (respostaIA.includes("[CRIAR_FINANCA]")) {
       const p = respostaIA.split("|");
       enviarMensagemTelegram(chatId, salvarFinancaManual(p[1].trim(), p[2].trim(), p[3].trim(), p[4].trim()));
+    } else if (respostaIA.includes("[BUSCAR_INSIGHT]")) {
+      const p = respostaIA.split("|");
+      enviarMensagemTelegram(chatId, buscarInsightPlanilha(p[1].trim()));
     } else {
       salvarMensagemPlanilha(chatId, textoUsuario, respostaIA);
       enviarMensagemTelegram(chatId, respostaIA);
@@ -932,5 +938,45 @@ function GEMINI_VISAO(prompt, base64) {
     }
   } catch (e) {
     throw new Error("Erro na comunicação com Gemini Vision: " + e.message);
+  }
+}
+// ============================================================================
+// 10. MÓDULO DE BUSCA DE INSIGHTS
+// ============================================================================
+
+function buscarInsightPlanilha(termoBusca) {
+  try {
+    const nomeAba = CONFIG.PLANILHA.INSIGHTS || "INSIGHTS";
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nomeAba);
+    
+    if (!sheet) return "❌ Erro: Aba de Insights não encontrada.";
+
+    const dados = sheet.getDataRange().getValues();
+    if (dados.length <= 1) return "📭 Nenhum insight salvo ainda.";
+
+    const termo = termoBusca.toLowerCase().trim();
+    let resultados = [];
+
+    // Busca de trás para frente (mais recentes primeiro)
+    for (let i = dados.length - 1; i > 0; i--) {
+      const data = dados[i][0] ? dados[i][0].toString() : "Data Indefinida";
+      const titulo = dados[i][1] ? dados[i][1].toString() : "";
+      const conteudo = dados[i][2] ? dados[i][2].toString() : "";
+
+      if (titulo.toLowerCase().includes(termo) || conteudo.toLowerCase().includes(termo)) {
+        resultados.push(`💡 <b>${titulo}</b> <i>(${data})</i>\n${conteudo}`);
+        // Limita a 3 resultados para não estourar o limite de tamanho do Telegram
+        if (resultados.length >= 3) break; 
+      }
+    }
+
+    if (resultados.length === 0) {
+      return `🔍 Não encontrei nenhum insight com a palavra: "<b>${termoBusca}</b>"`;
+    }
+
+    return `🔎 <b>Resultados da Busca:</b>\n\n` + resultados.join("\n\n〰️〰️〰️\n\n");
+
+  } catch (e) {
+    return "❌ Erro ao buscar insight: " + e.toString();
   }
 }
