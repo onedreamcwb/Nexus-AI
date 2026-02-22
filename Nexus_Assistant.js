@@ -29,7 +29,7 @@ const CONFIG = {
   }
 };
 // ============================================================================
-// 1. CÉREBRO (Prompt do Sistema - ATUALIZADO COM GATILHOS)
+// 1. CÉREBRO (Prompt do Sistema)
 // ============================================================================
 
 function gerarPromptSistema(historico, agenda, tarefas, perfil) {
@@ -50,19 +50,19 @@ function gerarPromptSistema(historico, agenda, tarefas, perfil) {
   DIRETRIZES:
   1. Seja direto, minimalista e profissional.
   2. Se for apenas conversa, responda normalmente.
+  3. FORMATACÃO (CRÍTICO): NUNCA use asteriscos (**) para negrito. Para destacar palavras, use APENAS a tag HTML <b>palavra</b>.
   
   ⚠️ SISTEMA DE GATILHOS (CRÍTICO) ⚠️
-  Se o usuário pedir para realizar alguma das ações abaixo, você está PROIBIDO de responder com texto normal. Você DEVE responder APENAS com a tag exata abaixo:
+  Se o usuário pedir para realizar alguma das ações abaixo, responda APENAS com a tag exata:
 
-  1. REGISTRAR FINANÇA (Gasto/Receita):
-  Responda APENAS: [CRIAR_FINANCA] | DATA (yyyy-MM-dd) | DESCRIÇÃO | CATEGORIA | VALOR
+  1. REGISTRAR FINANÇA:
+  [CRIAR_FINANCA] | DATA (yyyy-MM-dd) | DESCRIÇÃO | CATEGORIA | VALOR
 
   2. MARCAR EVENTO NA AGENDA:
-  Responda APENAS: [AGENDAR] | Título do Evento | Data e Hora (yyyy-MM-ddTHH:mm:00)
-  (Exemplo: [AGENDAR] | Reunião com Vitor Dutra | 2026-02-24T20:00:00)
+  [AGENDAR] | Título do Evento | Data e Hora (yyyy-MM-ddTHH:mm:00)
 
   3. CRIAR TAREFA RÁPIDA:
-  Responda APENAS: [CRIAR_TAREFA] | Título da Tarefa
+  [CRIAR_TAREFA] | Título da Tarefa
   `;
 }
 
@@ -496,10 +496,15 @@ function limparMemoria(chatId, avisar = false) {
 }
 
 function enviarMensagemTelegram(chatId, texto, teclado = null) {
-  const token = PropertiesService.getScriptProperties().getProperty('TELEGRAM_TOKEN');
+  // 🛡️ Filtro Anti-Bug: Converte o Markdown da IA para o HTML do Telegram
+  // Transforma **texto** em <b>texto</b>
+  let textoCorrigido = texto.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+
+  // Pega o token direto do CONFIG
+  const token = CONFIG.TOKEN; 
   const payload = {
     chat_id: chatId,
-    text: texto,
+    text: textoCorrigido,
     parse_mode: "HTML"
   };
   
