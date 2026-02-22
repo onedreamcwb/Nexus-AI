@@ -141,32 +141,48 @@ function doPost(e) {
     } else if (respostaIA.includes("[CRIAR_FINANCA]")) {
       const p = respostaIA.split("|");
       enviarMensagemTelegram(chatId, salvarFinancaManual(p[1].trim(), p[2].trim(), p[3].trim(), p[4].trim()));
-    } else if (respostaIA.includes("[BUSCAR_INSIGHT]")) {
+   } else if (respostaIA.includes("[BUSCAR_INSIGHT]")) {
       const p = respostaIA.split("|");
       enviarMensagemTelegram(chatId, buscarInsightPlanilha(p[1].trim()));
     } else {
+      // 💬 É UMA CONVERSA NORMAL (Ex: Resumo de livros, motivação)
       salvarMensagemPlanilha(chatId, textoUsuario, respostaIA);
-      enviarMensagemTelegram(chatId, respostaIA);
+      
+      // 👇 Cria o botão mágico de Salvar Insight
+      const teclado = {
+        inline_keyboard: [[
+          { text: "💡 Salvar como Insight", callback_data: "acao_salvar" }
+        ]]
+      };
+      
+      enviarMensagemTelegram(chatId, respostaIA, teclado);
     }
 
   } catch (err) {
     enviarMensagemTelegram(CONFIG.ID_ADMIN, `☠️ Erro: ${err.toString()}`);
   }
 }
-
-// --- Processamento dos Botões da Matriz ---
+// --- Processamento dos Botões da Matriz e Insights ---
 function processarBotao(data) {
   const acao = data.callback_query.data;
   const chatId = data.callback_query.message.chat.id;
   
-  // Se for botão de salvar/limpar normal
+  // Se for botão de limpar normal
   if (acao === "acao_limpar") {
     limparMemoria(chatId, true);
     return;
   }
+  
+  // 💡 SE FOR O BOTÃO DE SALVAR INSIGHT
   if (acao === "acao_salvar") {
-    salvarInsight(data.callback_query.message.text);
-    enviarMensagemTelegram(chatId, "✅ Salvo!");
+    const textoDaMensagem = data.callback_query.message.text;
+    
+    // Cria um título automático usando as 4 primeiras palavras
+    const tituloAutomatico = textoDaMensagem.split(' ').slice(0, 4).join(' ') + "...";
+    
+    // Chama a função de salvar e avisa o usuário
+    const resposta = salvarInsight(tituloAutomatico, textoDaMensagem);
+    enviarMensagemTelegram(chatId, resposta);
     return;
   }
 
@@ -174,10 +190,9 @@ function processarBotao(data) {
   if (acao.startsWith("task_")) {
     const listaCodigo = acao.replace("task_", ""); // Ex: Q1
     
-    // 1. Salva no Cache que estamos esperando uma tarefa para esta lista
+    // Salva no Cache que estamos esperando uma tarefa para esta lista
     CacheService.getScriptCache().put("estado_" + chatId, listaCodigo, 300); // 300s = 5 minutos
     
-    // 2. Pede ao usuário para digitar
     let nomeLista = "Lista Selecionada";
     if (listaCodigo === "Q1") nomeLista = "🟢 Importante e Urgente";
     if (listaCodigo === "Q2") nomeLista = "🟠 Importante mas N/Urgente";
