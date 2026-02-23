@@ -4,34 +4,43 @@
  * ============================================================================
  */
 // --- CONFIGURAÇÕES GERAIS ---
+// ============================================================================
 const CONFIG = {
-  TOKEN: "SEU_TOKEN_AQUI", 
-  GEMINI_KEY: "SUA_CHAVE_GEMINI_AQUI", 
+  TOKEN: "", 
+  GEMINI_KEY: "", 
   ID_ADMIN: "", 
   TIMEZONE: "GMT-3",
   
-  // 📂 OS DOIS CADERNOS DO NEXUS:
-  ID_PLANILHA_NEXUS: "ID_DA_PLANILHA_DO_NEXUS_AQUI", // 👈 O ID da planilha original (onde fica o Perfil)
-  ID_PLANILHA_FINANCEIRA: "ID_DA_SUA_PLANILHA_COMPLEXA_AQUI", // 👈 O ID da planilha nova (Controle Financeiro)
+  // 📂 IDs DAS PLANILHAS (O código que fica no link do navegador)
+  ID_PLANILHA_NEXUS: "", 
+  ID_PLANILHA_FINANCEIRA: "", 
 
+  // 📑 NOMES DAS ABAS (Devem ser idênticos aos nomes nas planilhas)
   PLANILHA: {
-    // Estas abas ele vai procurar na ID_PLANILHA_NEXUS
+    // Na Planilha Nexus:
     MEMORIA: "Telegram",
     INSIGHTS: "Insights",
     PERFIL: "Perfil",
-    
-    // Estas abas ele vai procurar na ID_PLANILHA_FINANCEIRA
+    // Na Planilha Financeira:
     ENTRADA: "ENTRADA",
-    SAIDA: "SAÍDA", 
+    SAIDA: "SAIDA", 
     APORTE: "APORTE",
     DADOS: "DADOS"
   },
   
+  // 🗒️ NOMES DAS LISTAS DE TAREFAS (Matriz de Eisenhower)
   LISTAS_TASKS: {
     Q1: "Importante e Urgente",
     Q2: "Importante Mas Não Urgente",
     Q3: "Urgente Mas Não Importante",
     Q4: "Não Importante e Não Urgente"
+  },
+
+  // 💬 MENSAGENS PADRÃO (O que estava faltando!)
+  MENSAGENS: {
+    ERRO_ACESSO: "⛔ Acesso Negado.",
+    PROCESSANDO: "<i>Processando...</i> ⏳",
+    SALVO: "✅ Salvo!"
   }
 };
 // ============================================================================
