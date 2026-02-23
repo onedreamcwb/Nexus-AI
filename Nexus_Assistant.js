@@ -3,31 +3,35 @@
  * 🤖 PROJETO NEXUS AI - V5.3 (Eisenhower Matrix - Financial & Vision Edition)
  * ============================================================================
  */
-
-// --- CONFIGURAÇÕES GERAIS ---
 // --- CONFIGURAÇÕES GERAIS ---
 const CONFIG = {
-  TOKEN: "SEU_TOKEN_AQUI", // ⚠️ Mantenha o seu token do Telegram
-  ID_ADMIN: "SEU_ID_AQUI", // ⚠️ Mantenha o seu ID do Telegram
-  GEMINI_KEY: "SUA_CHAVE_DO_GEMINI_AQUI", // 🧠 👈 Muito bem lembrado! A chave do cérebro!
-  ID_PLANILHA_FINANCEIRA: "COLE_AQUI_O_ID_DA_PLANILHA_NOVA", // 👈 O ID gigante do link da sua planilha nova
+  TOKEN: "SEU_TOKEN_AQUI", 
+  GEMINI_KEY: "SUA_CHAVE_GEMINI_AQUI", 
+  ID_ADMIN: "", 
+  TIMEZONE: "GMT-3",
+  
+  // 📂 OS DOIS CADERNOS DO NEXUS:
+  ID_PLANILHA_NEXUS: "ID_DA_PLANILHA_DO_NEXUS_AQUI", // 👈 O ID da planilha original (onde fica o Perfil)
+  ID_PLANILHA_FINANCEIRA: "ID_DA_SUA_PLANILHA_COMPLEXA_AQUI", // 👈 O ID da planilha nova (Controle Financeiro)
+
   PLANILHA: {
+    // Estas abas ele vai procurar na ID_PLANILHA_NEXUS
+    MEMORIA: "Telegram",
+    INSIGHTS: "Insights",
+    PERFIL: "Perfil",
+    
+    // Estas abas ele vai procurar na ID_PLANILHA_FINANCEIRA
     ENTRADA: "ENTRADA",
-    SAIDA: "SAÍDA", // Mantenha o acento se no separador estiver com acento
+    SAIDA: "SAÍDA", 
     APORTE: "APORTE",
-    DADOS: "DADOS",
-    INSIGHTS: "INSIGHTS" // Esta continua na planilha principal do Nexus
+    DADOS: "DADOS"
   },
+  
   LISTAS_TASKS: {
     Q1: "Importante e Urgente",
     Q2: "Importante Mas Não Urgente",
     Q3: "Urgente Mas Não Importante",
     Q4: "Não Importante e Não Urgente"
-  },
-  MENSAGENS: {
-    ERRO_ACESSO: "⛔ Acesso Negado.",
-    PROCESSANDO: "<i>Processando...</i> ⏳",
-    SALVO: "✅ Salvo!"
   }
 };
 // ============================================================================
