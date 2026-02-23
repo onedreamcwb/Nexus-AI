@@ -4,17 +4,19 @@
  * ============================================================================
  */
 
+// --- CONFIGURAÇÕES GERAIS ---
+// --- CONFIGURAÇÕES GERAIS ---
 const CONFIG = {
-  TOKEN: "SEU_TELEGRAM_TOKEN_AQUI", 
-  GEMINI_KEY: "SUA_API_KEY_AQUI", 
-  // ... resto do código
-  ID_ADMIN: "8134192211", 
-  TIMEZONE: "GMT-3",
+  TOKEN: "SEU_TOKEN_AQUI", // ⚠️ Mantenha o seu token do Telegram
+  ID_ADMIN: "SEU_ID_AQUI", // ⚠️ Mantenha o seu ID do Telegram
+  GEMINI_KEY: "SUA_CHAVE_DO_GEMINI_AQUI", // 🧠 👈 Muito bem lembrado! A chave do cérebro!
+  ID_PLANILHA_FINANCEIRA: "COLE_AQUI_O_ID_DA_PLANILHA_NOVA", // 👈 O ID gigante do link da sua planilha nova
   PLANILHA: {
-    MEMORIA: "Telegram",
-    INSIGHTS: "Insights",
-    PERFIL: "Perfil",
-    FINANCAS: "Financas"
+    ENTRADA: "ENTRADA",
+    SAIDA: "SAÍDA", // Mantenha o acento se no separador estiver com acento
+    APORTE: "APORTE",
+    DADOS: "DADOS",
+    INSIGHTS: "INSIGHTS" // Esta continua na planilha principal do Nexus
   },
   LISTAS_TASKS: {
     Q1: "Importante e Urgente",
@@ -52,20 +54,28 @@ function gerarPromptSistema(historico, agenda, tarefas, perfil) {
   2. Se for apenas conversa, responda normalmente.
   3. FORMATACÃO (CRÍTICO): NUNCA use asteriscos (**) para negrito. Para destacar palavras, use APENAS a tag HTML <b>palavra</b>.
   
+  // ... (mantenha a parte de cima do prompt igual) ...
+
   ⚠️ SISTEMA DE GATILHOS (CRÍTICO) ⚠️
-  Se o usuário pedir para realizar alguma das ações abaixo, responda APENAS com a tag exata:
+  Se o usuário pedir para registrar dinheiro, você DEVE extrair as informações e responder APENAS com a tag exata correspondente:
 
-  1. REGISTRAR FINANÇA:
-  [CRIAR_FINANCA] | DATA (yyyy-MM-dd) | DESCRIÇÃO | CATEGORIA | VALOR
+  1. REGISTRAR SAÍDA (Gastos, compras, contas pagas):
+  [NOVA_SAIDA] | DATA (yyyy-MM-dd) | DESCRIÇÃO | DESTINO | CATEGORIA | TIPO DE SAÍDA (Variável, Mensal ou Fatura) | PAGAMENTO (Pix, Crédito, Débito ou Dinheiro) | VALOR
 
-  2. MARCAR EVENTO NA AGENDA:
+  2. REGISTRAR ENTRADA (Salário, vale, rendimentos):
+  [NOVA_ENTRADA] | DATA (yyyy-MM-dd) | DESCRIÇÃO | ORIGEM | TIPO (Trabalho ou Extra) | VALOR
+
+  3. REGISTRAR APORTE (Dinheiro guardado, investimentos):
+  [NOVO_APORTE] | DATA (yyyy-MM-dd) | DESCRIÇÃO | ATIVO | CORRETORA/BANCO | VALOR
+
+  4. MARCAR EVENTO NA AGENDA:
   [AGENDAR] | Título do Evento | Data e Hora (yyyy-MM-ddTHH:mm:00)
 
-  3. CRIAR TAREFA RÁPIDA:
+  5. CRIAR TAREFA RÁPIDA:
   [CRIAR_TAREFA] | Título da Tarefa
 
-  4. BUSCAR/LEMBRAR UM INSIGHT OU ANOTAÇÃO:
-  [BUSCAR_INSIGHT] | Termo principal da busca
+  6. BUSCAR UM INSIGHT:
+  [BUSCAR_INSIGHT] | Termo principal
   `;
 }
 
@@ -131,17 +141,27 @@ function doPost(e) {
     const prompt = gerarPromptSistema(historico, agenda, tarefas, perfil);
     const respostaIA = GEMINI(prompt + "\nUsuário: " + textoUsuario);
 
- // Roteamento de Ações
+// Roteamento de Ações
     if (respostaIA.includes("[AGENDAR]")) {
       const p = respostaIA.split("|");
       enviarMensagemTelegram(chatId, criarEventoAgenda(p[1].trim(), p[2].trim()));
     } else if (respostaIA.includes("[CRIAR_TAREFA]")) {
       const p = respostaIA.split("|");
       enviarMensagemTelegram(chatId, criarTarefaGoogle(p[1].trim()));
-    } else if (respostaIA.includes("[CRIAR_FINANCA]")) {
+      
+    // 👇 NOVOS ROTEADORES FINANCEIROS 👇
+    } else if (respostaIA.includes("[NOVA_SAIDA]")) {
       const p = respostaIA.split("|");
-      enviarMensagemTelegram(chatId, salvarFinancaManual(p[1].trim(), p[2].trim(), p[3].trim(), p[4].trim()));
-   } else if (respostaIA.includes("[BUSCAR_INSIGHT]")) {
+      enviarMensagemTelegram(chatId, salvarSaida(p[1].trim(), p[2].trim(), p[3].trim(), p[4].trim(), p[5].trim(), p[6].trim(), p[7].trim()));
+    } else if (respostaIA.includes("[NOVA_ENTRADA]")) {
+      const p = respostaIA.split("|");
+      enviarMensagemTelegram(chatId, salvarEntrada(p[1].trim(), p[2].trim(), p[3].trim(), p[4].trim(), p[5].trim()));
+    } else if (respostaIA.includes("[NOVO_APORTE]")) {
+      const p = respostaIA.split("|");
+      enviarMensagemTelegram(chatId, salvarAporte(p[1].trim(), p[2].trim(), p[3].trim(), p[4].trim(), p[5].trim()));
+    // 👆 FIM DOS NOVOS ROTEADORES 👆
+    } else if (respostaIA.includes("[BUSCAR_INSIGHT]")) {
+// ... (continua igual para baixo)
       const p = respostaIA.split("|");
       enviarMensagemTelegram(chatId, buscarInsightPlanilha(p[1].trim()));
     } else {
@@ -787,46 +807,53 @@ function gerarResumoFinanceiro() {
     return "❌ Erro: " + e.toString();
   }
 }
+// ============================================================================
+// FUNÇÕES FINANCEIRAS (NOVO SISTEMA COMPLEXO)
+// ============================================================================
 
-function salvarFinancaManual(dataString, desc, cat, valor, subcategoria) {
-  try {
-    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CONFIG.PLANILHA.FINANCAS);
-    if (!sheet) return "❌ Erro: Aba 'Financas' não encontrada.";
-
-    // 1. Tratamento de Data Seguro
-    const partes = dataString.split('-');
-    const dataFormatada = (partes.length === 3) 
-      ? new Date(partes[0], partes[1] - 1, partes[2]) 
-      : new Date();
-
-    // 2. Extração de Valor
-    const extrairNumero = valor.toString().match(/\d+([.,]\d+)?/);
-    const valorLimpo = extrairNumero ? extrairNumero[0].replace(',', '.') : "0";
-
-    // 3. Normalização de Categoria
-    let catLimpa = cat.toLowerCase();
-    let categoriaFinal = cat.trim(); // Aceita o que a IA mandar como base
-    if (catLimpa.includes("fixa") || catLimpa.includes("conta")) categoriaFinal = "Fixa";
-    else if (catLimpa.includes("receita") || catLimpa.includes("salario") || catLimpa.includes("bolsa")) categoriaFinal = "Receita";
-    else if (catLimpa.includes("aporte") || catLimpa.includes("invest")) categoriaFinal = "Aporte";
-
-    // 4. Inserção
-    const dataParaPlanilha = Utilities.formatDate(dataFormatada, "GMT-3", "dd/MM/yyyy");
-    
-    sheet.appendRow([
-      dataParaPlanilha, 
-      desc, 
-      categoriaFinal, 
-      parseFloat(valorLimpo), 
-      "🤖 IA Vision", 
-      subcategoria || "Geral" // <--- A MÁGICA DA COLUNA F AQUI
-    ]);
-
-    return `✅ <b>Registro:</b> ${subcategoria || "Geral"}\n💰 R$ ${parseFloat(valorLimpo).toFixed(2)}`;
-    
-  } catch (e) {
-    return "❌ Erro ao salvar: " + e.toString();
+// Função auxiliar para encontrar a última linha real (ignorando formatações vazias)
+function encontrarUltimaLinhaReal(sheet) {
+  const dados = sheet.getRange("A:A").getValues();
+  for (let i = dados.length - 1; i >= 0; i--) {
+    if (dados[i][0] !== "") return i + 1;
   }
+  return 6; // Por padrão, a sua planilha começa a receber dados na linha 7
+}
+
+function salvarSaida(data, descricao, destino, categoria, tipoSaida, pagamento, valor) {
+  try {
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CONFIG.PLANILHA.SAIDA);
+    if (!sheet) return "❌ Aba de Saída não encontrada.";
+    
+    const ultimaLinha = encontrarUltimaLinhaReal(sheet);
+    // Colunas: DESCRIÇÃO | DESTINO | CATEGORIA | TIPO SAÍDA | PAGAMENTO | DATA | VALOR | PAGO?
+    sheet.getRange(ultimaLinha + 1, 1, 1, 8).setValues([[descricao, destino, categoria, tipoSaida, pagamento, data, valor, "SIM"]]);
+    return `💸 <b>SAÍDA REGISTRADA!</b>\n\n🛒 ${descricao}\n🏷️ ${categoria} (${tipoSaida})\n💰 R$ ${valor}\n💳 ${pagamento} em ${data}`;
+  } catch (e) { return "❌ Erro ao salvar saída: " + e.toString(); }
+}
+
+function salvarEntrada(data, descricao, origem, tipo, valor) {
+  try {
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CONFIG.PLANILHA.ENTRADA);
+    if (!sheet) return "❌ Aba de Entrada não encontrada.";
+    
+    const ultimaLinha = encontrarUltimaLinhaReal(sheet);
+    // Colunas: DESCRIÇÃO | ORIGEM | TIPO | DATA | VALOR | RECEBIDO?
+    sheet.getRange(ultimaLinha + 1, 1, 1, 6).setValues([[descricao, origem, tipo, data, valor, "SIM"]]);
+    return `🤑 <b>ENTRADA REGISTRADA!</b>\n\n🏢 ${origem}\n📝 ${descricao}\n💰 R$ ${valor}\n📅 Recebido em ${data}`;
+  } catch (e) { return "❌ Erro ao salvar entrada: " + e.toString(); }
+}
+
+function salvarAporte(data, descricao, ativo, corretora, valor) {
+  try {
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CONFIG.PLANILHA.APORTE);
+    if (!sheet) return "❌ Aba de Aporte não encontrada.";
+    
+    const ultimaLinha = encontrarUltimaLinhaReal(sheet);
+    // Colunas: DESCRIÇÃO | ATIVO | CORRETORA/BANCO | DATA | VALOR | FEITO?
+    sheet.getRange(ultimaLinha + 1, 1, 1, 6).setValues([[descricao, ativo, corretora, data, valor, "SIM"]]);
+    return `📈 <b>APORTE REGISTRADO!</b>\n\n🎯 ${descricao}\n🏦 ${corretora} (${ativo})\n💰 R$ ${valor}\n📅 Feito em ${data}`;
+  } catch (e) { return "❌ Erro ao salvar aporte: " + e.toString(); }
 }
 function processarImagemMultimodal(fileId) {
   try {
