@@ -821,53 +821,75 @@ function gerarResumoFinanceiro() {
   }
 }
 // ============================================================================
-// FUNÇÕES FINANCEIRAS (NOVO SISTEMA COMPLEXO)
+// FUNÇÕES FINANCEIRAS (ADAPTADAS PARA LAYOUT COM CABEÇALHO NA LINHA 7)
 // ============================================================================
 
-// Função auxiliar para encontrar a última linha real (ignorando formatações vazias)
+// Busca a última linha olhando para a Coluna B (Descrição)
 function encontrarUltimaLinhaReal(sheet) {
-  const dados = sheet.getRange("A:A").getValues();
+  const dados = sheet.getRange("B:B").getValues(); 
+  // Percorre de baixo para cima para encontrar a última preenchida
   for (let i = dados.length - 1; i >= 0; i--) {
-    if (dados[i][0] !== "") return i + 1;
+    if (dados[i][0] !== "" && dados[i][0] !== undefined) {
+      // Se a última preenchida for antes da linha 7 (cabeçalho), retornamos 7
+      return Math.max(i + 1, 7); 
+    }
   }
-  return 6; // Por padrão, a sua planilha começa a receber dados na linha 7
+  return 7; // Garantia: a primeira linha de dados será a 8 (7 + 1)
+}
+
+function obterAbaSegura(ss, nomePadrao) {
+  let sheet = ss.getSheetByName(nomePadrao);
+  if (sheet) return sheet;
+  const variacoes = { "SAÍDA": "SAIDA", "SAIDA": "SAÍDA" };
+  return ss.getSheetByName(variacoes[nomePadrao] || "");
 }
 
 function salvarSaida(data, descricao, destino, categoria, tipoSaida, pagamento, valor) {
   try {
-    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CONFIG.PLANILHA.SAIDA);
+    const ss = SpreadsheetApp.openById(CONFIG.ID_PLANILHA_FINANCEIRA);
+    const sheet = obterAbaSegura(ss, CONFIG.PLANILHA.SAIDA);
     if (!sheet) return "❌ Aba de Saída não encontrada.";
     
-    const ultimaLinha = encontrarUltimaLinhaReal(sheet);
-    // Colunas: DESCRIÇÃO | DESTINO | CATEGORIA | TIPO SAÍDA | PAGAMENTO | DATA | VALOR | PAGO?
-    sheet.getRange(ultimaLinha + 1, 1, 1, 8).setValues([[descricao, destino, categoria, tipoSaida, pagamento, data, valor, "SIM"]]);
-    return `💸 <b>SAÍDA REGISTRADA!</b>\n\n🛒 ${descricao}\n🏷️ ${categoria} (${tipoSaida})\n💰 R$ ${valor}\n💳 ${pagamento} em ${data}`;
+    const proximaLinha = encontrarUltimaLinhaReal(sheet) + 1;
+    
+    // Colunas na SAÍDA: B (Desc), C (Dest), D (Cat), E (Tipo), F (Pag), G (Data), H (Valor), I (Pago?)
+    // Range: linha, coluna 2 (B), 1 linha, 8 colunas
+    sheet.getRange(proximaLinha, 2, 1, 8).setValues([[descricao, destino, categoria, tipoSaida, pagamento, data, valor, "SIM"]]);
+    
+    return `💸 <b>SAÍDA REGISTRADA!</b>\n\n🛒 ${descricao}\n💰 R$ ${valor}\n📍 Linha: ${proximaLinha}`;
   } catch (e) { return "❌ Erro ao salvar saída: " + e.toString(); }
 }
 
 function salvarEntrada(data, descricao, origem, tipo, valor) {
   try {
-    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CONFIG.PLANILHA.ENTRADA);
+    const ss = SpreadsheetApp.openById(CONFIG.ID_PLANILHA_FINANCEIRA);
+    const sheet = obterAbaSegura(ss, CONFIG.PLANILHA.ENTRADA);
     if (!sheet) return "❌ Aba de Entrada não encontrada.";
     
-    const ultimaLinha = encontrarUltimaLinhaReal(sheet);
-    // Colunas: DESCRIÇÃO | ORIGEM | TIPO | DATA | VALOR | RECEBIDO?
-    sheet.getRange(ultimaLinha + 1, 1, 1, 6).setValues([[descricao, origem, tipo, data, valor, "SIM"]]);
-    return `🤑 <b>ENTRADA REGISTRADA!</b>\n\n🏢 ${origem}\n📝 ${descricao}\n💰 R$ ${valor}\n📅 Recebido em ${data}`;
+    const proximaLinha = encontrarUltimaLinhaReal(sheet) + 1;
+    
+    // Colunas na ENTRADA: B (Desc), C (Orig), D (Tipo), E (Data), F (Valor), G (Recebido?)
+    sheet.getRange(proximaLinha, 2, 1, 6).setValues([[descricao, origem, tipo, data, valor, "SIM"]]);
+    
+    return `🤑 <b>ENTRADA REGISTRADA!</b>\n\n🏢 ${origem}\n💰 R$ ${valor}\n📍 Linha: ${proximaLinha}`;
   } catch (e) { return "❌ Erro ao salvar entrada: " + e.toString(); }
 }
 
 function salvarAporte(data, descricao, ativo, corretora, valor) {
   try {
-    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CONFIG.PLANILHA.APORTE);
+    const ss = SpreadsheetApp.openById(CONFIG.ID_PLANILHA_FINANCEIRA);
+    const sheet = obterAbaSegura(ss, CONFIG.PLANILHA.APORTE);
     if (!sheet) return "❌ Aba de Aporte não encontrada.";
     
-    const ultimaLinha = encontrarUltimaLinhaReal(sheet);
-    // Colunas: DESCRIÇÃO | ATIVO | CORRETORA/BANCO | DATA | VALOR | FEITO?
-    sheet.getRange(ultimaLinha + 1, 1, 1, 6).setValues([[descricao, ativo, corretora, data, valor, "SIM"]]);
-    return `📈 <b>APORTE REGISTRADO!</b>\n\n🎯 ${descricao}\n🏦 ${corretora} (${ativo})\n💰 R$ ${valor}\n📅 Feito em ${data}`;
+    const proximaLinha = encontrarUltimaLinhaReal(sheet) + 1;
+    
+    // Colunas no APORTE: B (Desc), C (Ativo), D (Corr), E (Data), F (Valor), G (Feito?)
+    sheet.getRange(proximaLinha, 2, 1, 6).setValues([[descricao, ativo, corretora, data, valor, "SIM"]]);
+    
+    return `📈 <b>APORTE REGISTRADO!</b>\n\n🎯 ${descricao}\n💰 R$ ${valor}\n📍 Linha: ${proximaLinha}`;
   } catch (e) { return "❌ Erro ao salvar aporte: " + e.toString(); }
 }
+
 function processarImagemMultimodal(fileId) {
   try {
     const b64 = baixarArquivoTelegram(fileId);
