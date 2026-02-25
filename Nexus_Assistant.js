@@ -12,8 +12,8 @@ const CONFIG = {
   TIMEZONE: "GMT-3",
   
   // 📂 IDs DAS PLANILHAS (O código que fica no link do navegador)
-  ID_PLANILHA_NEXUS: "", 
-  ID_PLANILHA_FINANCEIRA: "", 
+  ID_PLANILHA_NEXUS: "18Wt_HYJruLarg8d5uLU0nS7aNNCuvSbAVguEIiC6wLQ", 
+  ID_PLANILHA_FINANCEIRA: "1zs5hALOCxqxwtHbMMPs63LY9U5JW8CEp7qonYKafuWg", 
 
   // 📑 NOMES DAS ABAS (Devem ser idênticos aos nomes nas planilhas)
   PLANILHA: {
@@ -67,13 +67,20 @@ function gerarPromptSistema(historico, agenda, tarefas, perfil) {
   2. Se for apenas conversa, responda normalmente.
   3. FORMATACÃO (CRÍTICO): NUNCA use asteriscos (**) para negrito. Para destacar palavras, use APENAS a tag HTML <b>palavra</b>.
   
-  // ... (mantenha a parte de cima do prompt igual) ...
+ // ... (mantenha a parte de cima do prompt igual) ...
 
   ⚠️ SISTEMA DE GATILHOS (CRÍTICO) ⚠️
   Se o usuário pedir para registrar dinheiro, você DEVE extrair as informações e responder APENAS com a tag exata correspondente:
 
-  1. REGISTRAR SAÍDA (Gastos, compras, contas pagas):
-  [NOVA_SAIDA] | DATA (yyyy-MM-dd) | DESCRIÇÃO | DESTINO | CATEGORIA | TIPO DE SAÍDA (Variável, Mensal ou Fatura) | PAGAMENTO (Pix, Crédito, Débito ou Dinheiro) | VALOR
+  1. REGISTRAR SAÍDA:
+  [NOVA_SAIDA] | DATA | DESCRIÇÃO | DESTINO | CATEGORIA | TIPO | PAGAMENTO | VALOR
+  
+  ⚠️ REGRAS DE VALIDAÇÃO (USE APENAS ESTAS OPÇÕES):
+  - CATEGORIAS: Mercado geral, Delivery, Restaurantes e bares, Vestuário, Moradia, Ultilidades, Decoração, Educação, Dependentes, Saúde, Entretenimento, Serviços, Terceiros, Transporte, Presentes, Pets, Viagens, Doações, Apostas, Livre, Outros.
+  - TIPO: Mensal, Variável, Fatura.
+  - PAGAMENTO: Pix, Débito, Crédito, Boleto, Dinheiro, Ted, Cheque.
+  
+  Exemplo: Se o usuário disser "Cinema", use CATEGORIA: Entretenimento. Se disser "Condor", DESTINO: Condor e CATEGORIA: Mercado geral.
 
   2. REGISTRAR ENTRADA (Salário, vale, rendimentos):
   [NOVA_ENTRADA] | DATA (yyyy-MM-dd) | DESCRIÇÃO | ORIGEM | TIPO (Trabalho ou Extra) | VALOR
@@ -154,7 +161,7 @@ function doPost(e) {
     const prompt = gerarPromptSistema(historico, agenda, tarefas, perfil);
     const respostaIA = GEMINI(prompt + "\nUsuário: " + textoUsuario);
 
-// Roteamento de Ações
+  // Roteamento de Ações
     if (respostaIA.includes("[AGENDAR]")) {
       const p = respostaIA.split("|");
       enviarMensagemTelegram(chatId, criarEventoAgenda(p[1].trim(), p[2].trim()));
@@ -164,8 +171,18 @@ function doPost(e) {
       
     // 👇 NOVOS ROTEADORES FINANCEIROS 👇
     } else if (respostaIA.includes("[NOVA_SAIDA]")) {
-      const p = respostaIA.split("|");
-      enviarMensagemTelegram(chatId, salvarSaida(p[1].trim(), p[2].trim(), p[3].trim(), p[4].trim(), p[5].trim(), p[6].trim(), p[7].trim()));
+      const p = respostaIA.split("|").map(item => item.trim());
+      
+      // Mapeamento rigoroso para evitar erro de validação
+      const data  = p[1] || new Date().toISOString().split('T')[0];
+      const desc  = p[2] || "Gasto via Nexus";
+      const dest  = p[3] || "Diverso";
+      const cat   = p[4] || "Livre"; // Valor padrão seguro
+      const tipo  = p[5] || "Variável";
+      const pag   = p[6] || "Pix";
+      const valor = p[7] || "0";
+
+      enviarMensagemTelegram(chatId, salvarSaida(data, desc, dest, cat, tipo, pag, valor));
     } else if (respostaIA.includes("[NOVA_ENTRADA]")) {
       const p = respostaIA.split("|");
       enviarMensagemTelegram(chatId, salvarEntrada(p[1].trim(), p[2].trim(), p[3].trim(), p[4].trim(), p[5].trim()));
@@ -195,6 +212,7 @@ function doPost(e) {
     enviarMensagemTelegram(CONFIG.ID_ADMIN, `☠️ Erro: ${err.toString()}`);
   }
 }
+
 // --- Processamento dos Botões da Matriz e Insights ---
 function processarBotao(data) {
   const acao = data.callback_query.data;
@@ -378,26 +396,42 @@ function criarTarefaGoogle(titulo) {
 // ============================================================================
 
 function GEMINI(prompt) {
-  const apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_KEY');
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+  const apiKey = CONFIG.GEMINI_KEY; // Puxa a chave do CONFIG global
+  const modelo = "gemini-2.5-flash"; // Mantido conforme sua exigência
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${apiKey}`;
   
   const options = {
     method: 'post',
     contentType: 'application/json',
-    payload: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
-    muteHttpExceptions: true
+    payload: JSON.stringify({ 
+      contents: [{ parts: [{ text: prompt }] }],
+      safetySettings: [
+        { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+        { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
+      ]
+    }),
+    muteHttpExceptions: true // Permite capturar a mensagem de erro real do Google
   };
 
   try {
-    let response = UrlFetchApp.fetch(url, options);
-    // Retry logic simples
-    if (response.getResponseCode() !== 200) {
-      Utilities.sleep(2000);
-      response = UrlFetchApp.fetch(url, options);
+    const response = UrlFetchApp.fetch(url, options);
+    const responseCode = response.getResponseCode();
+    const responseText = response.getContentText();
+    const json = JSON.parse(responseText);
+
+    if (responseCode !== 200) {
+      // Se der erro de limite (429), ele avisa você claramente
+      if (responseCode === 429) return "⚠️ Limite de requisições atingido. Tente em 10 segundos.";
+      return "⚠️ Erro API (" + responseCode + "): " + responseText;
     }
-    return JSON.parse(response.getContentText()).candidates[0].content.parts[0].text;
+    
+    if (json.candidates && json.candidates[0].content) {
+      return json.candidates[0].content.parts[0].text;
+    }
+    return "IA retornou resposta vazia.";
+    
   } catch (e) {
-    return "Erro IA";
+    return "❌ Falha crítica na conexão: " + e.toString();
   }
 }
 
@@ -748,76 +782,98 @@ function gerarResumoFinanceiro() {
 
     const dados = sheet.getDataRange().getValues();
     const hoje = new Date();
+    hoje.setHours(23, 59, 59, 999); 
+    
     const mesAtual = hoje.getMonth();
     const anoAtual = hoje.getFullYear();
 
-    let totalReceitas = 0;
+    let totalReceitasJaRecebidas = 0;
+    let totalReceitasFuturas = 0;
     let totalFixas = 0;
     let totalVariaveis = 0;
-    let totalAportes = 0;
+    
+    // 💡 NOVA LÓGICA DE APORTES
+    let totalAportesGeral = 0; // Soma TUDO (passado, presente e futuro)
+    let aportesDesteMes = 0;   // Só o que você tirou do bolso NESTE MÊS
 
     dados.slice(1).forEach(linha => {
-      if (!linha[0] || !(linha[0] instanceof Date)) return;
+      if (!linha[0]) return;
 
-      const dataGasto = linha[0];
+      let dataGasto = (linha[0] instanceof Date) ? linha[0] : new Date(linha[0]);
       
-      // FILTRO DE MÊS ATUAL (O Nexus ignora janeiro para não poluir seu fevereiro)
-      if (dataGasto.getMonth() === mesAtual && dataGasto.getFullYear() === anoAtual) {
+      let valorFinal = 0;
+      let celulaValor = linha[3];
+      if (typeof celulaValor === 'number') {
+        valorFinal = celulaValor;
+      } else {
+        let limpo = celulaValor.toString().replace(/[R$\s]/g, '').replace(/\./g, '').replace(',', '.');
+        valorFinal = parseFloat(limpo) || 0;
+      }
+
+      const descricao = (linha[1] || "").toString().toLowerCase();
+      const categoria = (linha[2] || "").toString().toLowerCase();
+
+      // Identifica o que é Receita (Isso impede que a sua "Retirada do Aporte" bugue o sistema)
+      const isReceita = categoria.includes("receita") || categoria.includes("salario") || categoria.includes("bolsa") || categoria.includes("vale");
+      
+      // Identifica o que é Aporte
+      const isAporte = !isReceita && (categoria.includes("aporte") || categoria.includes("invest") || descricao.includes("guarda"));
+
+      // 1. LÓGICA DO COFRE (Soma global de Aportes)
+      if (isAporte) {
+        totalAportesGeral += valorFinal;
         
-        // Tratamento de Valor
-        let valorFinal = 0;
-        let celulaValor = linha[3];
-        if (typeof celulaValor === 'number') {
-          valorFinal = celulaValor;
-        } else {
-          let limpo = celulaValor.toString().replace(/[R$\s]/g, '').replace(/\./g, '').replace(',', '.');
-          valorFinal = parseFloat(limpo) || 0;
+        // Se o aporte foi feito no mês atual, nós separamos para abater do salário
+        if (dataGasto.getMonth() === mesAtual && dataGasto.getFullYear() === anoAtual) {
+          aportesDesteMes += valorFinal;
         }
-
-        const categoria = linha[2] ? linha[2].toString().toLowerCase() : "";
-
-        // --- NOVA LÓGICA DE DICIONÁRIO ---
-        if (categoria.includes("receita") || categoria.includes("salario") || categoria.includes("bolsa")) {
-          totalReceitas += valorFinal;
+      } 
+      
+      // 2. LÓGICA DO MÊS ATUAL (Receitas e Gastos só de Fevereiro)
+      else if (dataGasto.getMonth() === mesAtual && dataGasto.getFullYear() === anoAtual) {
+        
+        if (isReceita) {
+          if (dataGasto <= hoje) {
+            totalReceitasJaRecebidas += valorFinal;
+          } else {
+            totalReceitasFuturas += valorFinal;
+          }
         } 
         else if (categoria.includes("fixa") || categoria.includes("internet") || 
                  categoria.includes("fatura") || categoria.includes("agua") || 
                  categoria.includes("luz") || categoria.includes("aluguel") || 
-                 categoria.includes("supermercado")) { // Supermercado você trata como fixa/essencial? Coloquei aqui.
+                 categoria.includes("supermercado")) {
           totalFixas += valorFinal;
         } 
-        else if (categoria.includes("aporte") || categoria.includes("invest")) {
-          totalAportes += valorFinal;
-        } 
         else {
-          // Itens como "Cigarro", "Corte de Cabelo", "Compra", "Variável"
           totalVariaveis += valorFinal;
         }
       }
     });
 
-    const totalDespesas = totalFixas + totalVariaveis + totalAportes;
-    const saldoFinal = totalReceitas - totalDespesas;
+    // 🧮 CÁLCULO DO SALDO DISPONÍVEL
+    // Receitas - (Fixas + Variáveis + Aportes feitos SÓ NESTE MÊS)
+    const saldoLivreAgora = totalReceitasJaRecebidas - (totalFixas + totalVariaveis + aportesDesteMes);
+    
     const formatar = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-
-    // Feedback Inteligente
-    let feedback = saldoFinal < 0 ? "⚠️ Atenção: Gastos superando receitas!" : "✅ Saldo positivo. Mantenha o foco!";
 
     return `
 📊 <b>RESUMO FINANCEIRO - ${hoje.toLocaleDateString('pt-BR', {month: 'long', year: 'numeric'}).toUpperCase()}</b>
 
-💰 <b>Receitas:</b> ${formatar(totalReceitas)}
-🏠 <b>Fixas:</b> ${formatar(totalFixas)}
-🛒 <b>Variáveis:</b> ${formatar(totalVariaveis)}
-📈 <b>Aportes:</b> ${formatar(totalAportes)}
+💰 <b>Receitas Recebidas:</b> ${formatar(totalReceitasJaRecebidas)}
+⏳ <b>Receitas Futuras:</b> ${formatar(totalReceitasFuturas)}
+📈 <b>Total Acumulado em Aportes:</b> ${formatar(totalAportesGeral)}
 -------------------------
-💵 <b>SALDO ATUAL: ${formatar(saldoFinal)}</b>
+🏠 <b>Gastos Fixos:</b> ${formatar(totalFixas)}
+🛒 <b>Gastos Variáveis:</b> ${formatar(totalVariaveis)}
+-------------------------
+💵 <b>DISPONÍVEL HOJE: ${formatar(saldoLivreAgora)}</b>
 
-💡 ${feedback}
+💡 ${saldoLivreAgora < 0 ? "⚠️ Você está operando com dinheiro que ainda não caiu!" : "✅ Saldo saudável para gastos livres."}
     `;
 
   } catch (e) {
-    return "❌ Erro: " + e.toString();
+    return "❌ Erro no resumo: " + e.toString();
   }
 }
 // ============================================================================
@@ -848,18 +904,32 @@ function salvarSaida(data, descricao, destino, categoria, tipoSaida, pagamento, 
   try {
     const ss = SpreadsheetApp.openById(CONFIG.ID_PLANILHA_FINANCEIRA);
     const sheet = obterAbaSegura(ss, CONFIG.PLANILHA.SAIDA);
-    if (!sheet) return "❌ Aba de Saída não encontrada.";
     
+    // Encontra a linha 8 ou a próxima vazia na coluna B
     const proximaLinha = encontrarUltimaLinhaReal(sheet) + 1;
     
-    // Colunas na SAÍDA: B (Desc), C (Dest), D (Cat), E (Tipo), F (Pag), G (Data), H (Valor), I (Pago?)
-    // Range: linha, coluna 2 (B), 1 linha, 8 colunas
-    sheet.getRange(proximaLinha, 2, 1, 8).setValues([[descricao, destino, categoria, tipoSaida, pagamento, data, valor, "SIM"]]);
-    
-    return `💸 <b>SAÍDA REGISTRADA!</b>\n\n🛒 ${descricao}\n💰 R$ ${valor}\n📍 Linha: ${proximaLinha}`;
-  } catch (e) { return "❌ Erro ao salvar saída: " + e.toString(); }
-}
+    // Converte ponto em vírgula para o Sheets reconhecer como dinheiro
+    const valorFormatado = valor.toString().replace('.', ',');
 
+    // Monta a linha exatamente como a sua planilha espera (Colunas B até I)
+    const dados = [[
+      descricao,   // B: DESCRIÇÃO
+      destino,     // C: DESTINO
+      categoria,   // D: CATEGORIA (Validada)
+      tipoSaida,   // E: TIPO DE SAÍDA (Validada)
+      pagamento,   // F: PAGAMENTO (Validada)
+      data,        // G: DATA
+      valorFormatado, // H: VALOR
+      "SIM"        // I: PAGO?
+    ]];
+    
+    sheet.getRange(proximaLinha, 2, 1, 8).setValues(dados);
+    
+    return `✅ <b>Registrado na Planilha Oficial!</b>\n\n📝 ${descricao}\n📂 ${categoria}\n💰 R$ ${valor}\n📍 Linha: ${proximaLinha}`;
+  } catch (e) {
+    return "❌ Erro ao salvar: " + e.toString();
+  }
+}
 function salvarEntrada(data, descricao, origem, tipo, valor) {
   try {
     const ss = SpreadsheetApp.openById(CONFIG.ID_PLANILHA_FINANCEIRA);
@@ -889,6 +959,7 @@ function salvarAporte(data, descricao, ativo, corretora, valor) {
     return `📈 <b>APORTE REGISTRADO!</b>\n\n🎯 ${descricao}\n💰 R$ ${valor}\n📍 Linha: ${proximaLinha}`;
   } catch (e) { return "❌ Erro ao salvar aporte: " + e.toString(); }
 }
+
 
 function processarImagemMultimodal(fileId) {
   try {
