@@ -8,12 +8,11 @@
 const CONFIG = {
   TOKEN: "", 
   GEMINI_KEY: "", 
-  ID_ADMIN: "", 
+  ID_ADMIN: "8134192211", 
   TIMEZONE: "GMT-3",
   
   // 📂 IDs DAS PLANILHAS (O código que fica no link do navegador)
   ID_PLANILHA_NEXUS: "18Wt_HYJruLarg8d5uLU0nS7aNNCuvSbAVguEIiC6wLQ", 
-  ID_PLANILHA_FINANCEIRA: "1zs5hALOCxqxwtHbMMPs63LY9U5JW8CEp7qonYKafuWg", 
 
   // 📑 NOMES DAS ABAS (Devem ser idênticos aos nomes nas planilhas)
   PLANILHA: {
@@ -21,11 +20,6 @@ const CONFIG = {
     MEMORIA: "Telegram",
     INSIGHTS: "Insights",
     PERFIL: "Perfil",
-    // Na Planilha Financeira:
-    ENTRADA: "ENTRADA",
-    SAIDA: "SAIDA", 
-    APORTE: "APORTE",
-    DADOS: "DADOS"
   },
   
   // 🗒️ NOMES DAS LISTAS DE TAREFAS (Matriz de Eisenhower)
@@ -65,40 +59,18 @@ function gerarPromptSistema(historico, agenda, tarefas, perfil) {
   DIRETRIZES:
   1. Seja direto, minimalista e profissional.
   2. Se for apenas conversa, responda normalmente.
-  3. FORMATACÃO (CRÍTICO): NUNCA use asteriscos (**) para negrito. Para destacar palavras, use APENAS a tag HTML <b>palavra</b>.
-  
- // ... (mantenha a parte de cima do prompt igual) ...
-
-  ⚠️ SISTEMA DE GATILHOS (CRÍTICO) ⚠️
-  Se o usuário pedir para registrar dinheiro, você DEVE extrair as informações e responder APENAS com a tag exata correspondente:
-
-  1. REGISTRAR SAÍDA:
-  [NOVA_SAIDA] | DATA | DESCRIÇÃO | DESTINO | CATEGORIA | TIPO | PAGAMENTO | VALOR
-  
-  ⚠️ REGRAS DE VALIDAÇÃO (USE APENAS ESTAS OPÇÕES):
-  - CATEGORIAS: Mercado geral, Delivery, Restaurantes e bares, Vestuário, Moradia, Ultilidades, Decoração, Educação, Dependentes, Saúde, Entretenimento, Serviços, Terceiros, Transporte, Presentes, Pets, Viagens, Doações, Apostas, Livre, Outros.
-  - TIPO: Mensal, Variável, Fatura.
-  - PAGAMENTO: Pix, Débito, Crédito, Boleto, Dinheiro, Ted, Cheque.
-  
-  Exemplo: Se o usuário disser "Cinema", use CATEGORIA: Entretenimento. Se disser "Condor", DESTINO: Condor e CATEGORIA: Mercado geral.
-
-  2. REGISTRAR ENTRADA (Salário, vale, rendimentos):
-  [NOVA_ENTRADA] | DATA (yyyy-MM-dd) | DESCRIÇÃO | ORIGEM | TIPO (Trabalho ou Extra) | VALOR
-
-  3. REGISTRAR APORTE (Dinheiro guardado, investimentos):
-  [NOVO_APORTE] | DATA (yyyy-MM-dd) | DESCRIÇÃO | ATIVO | CORRETORA/BANCO | VALOR
-
-  4. MARCAR EVENTO NA AGENDA:
-  [AGENDAR] | Título do Evento | Data e Hora (yyyy-MM-ddTHH:mm:00)
-
-  5. CRIAR TAREFA RÁPIDA:
-  [CRIAR_TAREFA] | Título da Tarefa
-
-  6. BUSCAR UM INSIGHT:
-  [BUSCAR_INSIGHT] | Termo principal
-  `;
+  3. FORMATACÃO (CRÍTICO): NUNCA use asteriscos (**) para negrito. Para destacar palavras, use APENAS a tag HTML <b>palavra</b>, 
+  - <i>Texto</i>; para itálico, 
+  - <u>Texto</u>; para sublinhar, 
+  - <s>Texto</s>; para adicionar riscado ao texto,
+  - <code>Trecho de código</code>; para inserir um fragmento de código,
+  - <pre>Trecho grande de código</pre>; usado para destacar um trecho maior de código,
+  - <a Link </a>; Para criar um HyperLink,
+  - <blockquote>texto</blockquote>; Para destacar o texto como uma citação,
+  - <h2>Subtitulo 2</h2>, <h3>Subititulo 3</h3>; Cria subtitulo de nivel correspondente.
+  - Pode inserir emotes quando viável
+ `;
 }
-
 // ============================================================================
 // 2. CONTROLADOR (Cérebro Central - Versão v4.9 Multimodal)
 // ============================================================================
