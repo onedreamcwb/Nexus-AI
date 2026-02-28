@@ -8,6 +8,7 @@ const CONFIG = {
   TOKEN: "", 
   GEMINI_KEY: "", // <--- ADICIONE SUA API KEY AQUI!
   ID_ADMIN: "8134192211", 
+  ID_PLANILHA_NEXUS: "18Wt_HYJruLarg8d5uLU0nS7aNNCuvSbAVguEIiC6wLQ",
   TIMEZONE: "GMT-3",
   PLANILHA: {
     MEMORIA: "Telegram",
@@ -140,18 +141,16 @@ function doPost(e) {
     } else if (respostaIA.includes("[CRIAR_FINANCA]")) {
       const p = respostaIA.split("|");
       enviarMensagemTelegram(chatId, salvarFinancaManual(p[1].trim(), p[2].trim(), p[3].trim(), p[4].trim()));
-    } else if (respostaIA.includes("[BUSCAR_INSIGHT]")) {
-      const p = respostaIA.split("|");
-      enviarMensagemTelegram(chatId, buscarInsightPlanilha(p[1].trim()));
-    } else {
-      salvarMensagemPlanilha(chatId, textoUsuario, respostaIA);
+    // ...
+    } else if (respostaIA.includes("[NOVO_INSIGHT]")) {
+      const p = respostaIA.split("|").map(item => item.trim());
+      enviarMensagemTelegram(chatId, salvarInsight(p[1]));
+    } salvarMensagemPlanilha(chatId, textoUsuario, respostaIA);
       enviarMensagemTelegram(chatId, respostaIA);
-    }
-
-  } catch (err) {
+    } catch (err) {
     enviarMensagemTelegram(CONFIG.ID_ADMIN, `☠️ Erro: ${err.toString()}`);
   }
-}
+
 
 // --- Processamento dos Botões da Matriz ---
 function processarBotao(data) {
@@ -978,4 +977,26 @@ function buscarInsightPlanilha(termoBusca) {
   } catch (e) {
     return "❌ Erro ao buscar insight: " + e.toString();
   }
+}
+// ============================================================================
+// FUNÇÃO PARA SALVAR INSIGHTS (ADICIONAR AO FINAL DO ARQUIVO)
+// ============================================================================
+
+function salvarInsight(resumo) {
+  try {
+    const ss = SpreadsheetApp.openById(CONFIG.ID_PLANILHA_NEXUS);
+    const sheet = ss.getSheetByName(CONFIG.PLANILHA.INSIGHTS); // Certifique-se que o nome na planilha é "Insights"
+    
+    if (!sheet) {
+      return "❌ Erro: Aba 'Insights' não encontrada na planilha.";
+    }
+    
+    // Adiciona: Data | Insight
+    sheet.appendRow([new Date(), resumo]);
+    
+    return `💡 <b>Insight Registrado!</b>\n\n<blockquote>${resumo}</blockquote>`;
+  } catch (e) {
+    return "❌ Erro ao salvar insight: " + e.toString();
+  }
+}
 }
