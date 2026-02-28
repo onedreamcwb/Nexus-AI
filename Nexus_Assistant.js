@@ -128,29 +128,48 @@ function doPost(e) {
     const tarefas = listarTarefasPendentes();
     const perfil = lerPerfilUsuario();
     
+    // ... (início do código igual ao seu) ...
+
     const prompt = gerarPromptSistema(historico, agenda, tarefas, perfil);
+    // Adiciona o contexto do usuário
     const respostaIA = GEMINI(prompt + "\nUsuário: " + textoUsuario);
 
-  // Roteamento de Ações
+    // Salva no histórico (Planilha Telegram)
+    salvarMensagemPlanilha(chatId, textoUsuario, respostaIA);
+
+    // --- ROTEAMENTO DE AÇÕES ---
     if (respostaIA.includes("[AGENDAR]")) {
       const p = respostaIA.split("|");
       enviarMensagemTelegram(chatId, criarEventoAgenda(p[1].trim(), p[2].trim()));
+
     } else if (respostaIA.includes("[CRIAR_TAREFA]")) {
       const p = respostaIA.split("|");
       enviarMensagemTelegram(chatId, criarTarefaGoogle(p[1].trim()));
+
     } else if (respostaIA.includes("[CRIAR_FINANCA]")) {
       const p = respostaIA.split("|");
       enviarMensagemTelegram(chatId, salvarFinancaManual(p[1].trim(), p[2].trim(), p[3].trim(), p[4].trim()));
-    // ...
+
     } else if (respostaIA.includes("[NOVO_INSIGHT]")) {
       const p = respostaIA.split("|").map(item => item.trim());
-      enviarMensagemTelegram(chatId, salvarInsight(p[1]));
-    } salvarMensagemPlanilha(chatId, textoUsuario, respostaIA);
-      enviarMensagemTelegram(chatId, respostaIA);
-    } catch (err) {
-    enviarMensagemTelegram(CONFIG.ID_ADMIN, `☠️ Erro: ${err.toString()}`);
-  }
+      // Agora passamos: (Sua Pergunta, O Insight)
+      enviarMensagemTelegram(chatId, salvarInsight(textoUsuario, p[1]));
 
+    } else {
+      // === AQUI É A MÁGICA ===
+      // Se for uma resposta comum, envia com o botão de Insight
+      const tecladoInsight = {
+        inline_keyboard: [[
+          { text: "💡 Salvar Insight", callback_data: "salvar_insight" }
+        ]]
+      };
+      enviarMensagemTelegram(chatId, respostaIA, tecladoInsight);
+    }
+
+  } catch (err) {
+    enviarMensagemTelegram(CONFIG.ID_ADMIN, `☠️ Erro no doPost: ${err.toString()}`);
+  }
+}
 
 // --- Processamento dos Botões da Matriz ---
 function processarBotao(data) {
@@ -473,16 +492,21 @@ function salvarMensagemPlanilha(chatId, usuario, bot) {
   }
 }
 
-function salvarInsight(texto) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  let sheet = ss.getSheetByName(CONFIG.PLANILHA.INSIGHTS);
-  if (!sheet) {
-    sheet = ss.insertSheet(CONFIG.PLANILHA.INSIGHTS);
-    sheet.appendRow(['Data', 'Insight']);
-  }
-  sheet.appendRow([obterDataFormatada(), texto]);
-}
+function salvarInsight(pergunta, resposta) {
+  try {
+    const ss = SpreadsheetApp.openById(CONFIG.ID_PLANILHA_NEXUS);
+    const sheet = ss.getSheetByName(CONFIG.PLANILHA.INSIGHTS);
+    
+    if (!sheet) return "❌ Aba Insights não encontrada.";
 
+    // Coluna A: Data | Coluna B: Pergunta | Coluna C: Resposta (Insight)
+    sheet.appendRow([new Date(), pergunta, resposta]);
+    
+    return `💡 <b>Insight Salvo!</b>\n\nContexto: <i>${pergunta}</i>`;
+  } catch (e) {
+    return "❌ Erro ao salvar: " + e.toString();
+  }
+}
 function obterHistorico(chatId) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CONFIG.PLANILHA.MEMORIA);
   if (!sheet || sheet.getLastRow() <= 2) return "";
@@ -499,26 +523,32 @@ function limparMemoria(chatId, avisar = false) {
   if (avisar) enviarMensagemTelegram(chatId, "🧹 Limpo.");
 }
 
-function enviarMensagemTelegram(chatId, texto, teclado = null) {
-  // 🛡️ Filtro Anti-Bug: Converte o Markdown da IA para o HTML do Telegram
-  // Transforma **texto** em <b>texto</b>
-  let textoCorrigido = texto.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
-
-  // Pega o token direto do CONFIG
-  const token = CONFIG.TOKEN; 
+function enviarMensagemTelegram(chatId, text, teclado = null) {
+  const url = `https://api.telegram.org/bot${CONFIG.TOKEN}/sendMessage`;
+  
   const payload = {
     chat_id: chatId,
-    text: textoCorrigido,
-    parse_mode: "HTML"
+    text: text,
+    parse_mode: 'HTML'
   };
-  
-  if (teclado) payload.reply_markup = teclado;
-  
-  UrlFetchApp.fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+
+  // Se houver um teclado (botão), adiciona ao payload
+  if (teclado) {
+    payload.reply_markup = teclado;
+  }
+
+  const options = {
     method: 'post',
     contentType: 'application/json',
-    payload: JSON.stringify(payload)
-  });
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  };
+  
+  try {
+    UrlFetchApp.fetch(url, options);
+  } catch (e) {
+    Logger.log("Erro ao enviar msg: " + e);
+  }
 }
 
 // ============================================================================
@@ -982,21 +1012,76 @@ function buscarInsightPlanilha(termoBusca) {
 // FUNÇÃO PARA SALVAR INSIGHTS (ADICIONAR AO FINAL DO ARQUIVO)
 // ============================================================================
 
-function salvarInsight(resumo) {
+function salvarInsight(pergunta, resposta) {
   try {
     const ss = SpreadsheetApp.openById(CONFIG.ID_PLANILHA_NEXUS);
-    const sheet = ss.getSheetByName(CONFIG.PLANILHA.INSIGHTS); // Certifique-se que o nome na planilha é "Insights"
+    // FORÇANDO O NOME DA ABA PARA GARANTIR
+    const sheet = ss.getSheetByName("Insights"); 
     
-    if (!sheet) {
-      return "❌ Erro: Aba 'Insights' não encontrada na planilha.";
-    }
+    if (!sheet) return "❌ Erro Crítico: Crie uma aba chamada 'Insights' na planilha.";
+
+    // Coluna A: Data | Coluna B: Pergunta (Contexto) | Coluna C: Resposta (O Insight Completo)
+    sheet.appendRow([new Date(), pergunta, resposta]);
     
-    // Adiciona: Data | Insight
-    sheet.appendRow([new Date(), resumo]);
-    
-    return `💡 <b>Insight Registrado!</b>\n\n<blockquote>${resumo}</blockquote>`;
+    return `💡 <b>Insight Salvo com Sucesso!</b>\n\nContexto: <i>${pergunta}</i>`;
   } catch (e) {
-    return "❌ Erro ao salvar insight: " + e.toString();
+    return "❌ Erro ao salvar na aba Insights: " + e.toString();
   }
 }
+function processarBotao(data) {
+  const callback = data.callback_query;
+  const chatId = callback.message.chat.id;
+  
+  // 1. Resposta Imediata (Tira o reloginho)
+  try {
+    UrlFetchApp.fetch(`https://api.telegram.org/bot${CONFIG.TOKEN}/answerCallbackQuery`, {
+      method: 'post',
+      contentType: 'application/json',
+      payload: JSON.stringify({ callback_query_id: callback.id, text: "🔄 Movendo para Insights..." }),
+      muteHttpExceptions: true
+    });
+  } catch (e) {}
+
+  // 2. O Insight é o texto da mensagem do botão
+  const insightTexto = callback.message.text || "⚠️ Texto não identificado";
+
+  // 3. MOVIMENTO: Busca Contexto -> Salva no Insight -> Deleta do Telegram
+  let perguntaOriginal = "Contexto Manual";
+  
+  try {
+    const ss = SpreadsheetApp.openById(CONFIG.ID_PLANILHA_NEXUS);
+    
+    // Referência às duas abas
+    const sheetMemoria = ss.getSheetByName("Telegram"); // Aba de memória (lixo/histórico)
+    const sheetInsights = ss.getSheetByName("Insights"); // Aba de ouro
+    
+    const ultimaLinha = sheetMemoria.getLastRow();
+    
+    // A. Busca a pergunta original na última linha da memória
+    if (ultimaLinha > 1) {
+      // Pega a Coluna C (Mensagem do Usuário)
+      perguntaOriginal = sheetMemoria.getRange(ultimaLinha, 3).getValue();
+      
+      // B. SALVA NA ABA INSIGHTS (Blindado)
+      // Coluna A: Data | Coluna B: Pergunta | Coluna C: Resposta
+      sheetInsights.appendRow([new Date(), perguntaOriginal, insightTexto]);
+      
+      // C. DELETA DA ABA TELEGRAM (Para não duplicar)
+      // Remove a linha inteira da conversa que acabou de ser promovida
+      sheetMemoria.deleteRow(ultimaLinha);
+      
+      var msgFinal = "✅ <b>Insight Movido com Sucesso!</b>\n\n<i>A conversa foi salva em Insights e removida do histórico geral.</i>";
+    } else {
+      var msgFinal = "⚠️ Não foi possível encontrar a conversa original para mover.";
+    }
+
+    // 4. Confirmação Visual
+    enviarMensagemTelegram(chatId, msgFinal);
+
+  } catch (e) {
+    console.log("Erro ao mover insight: " + e);
+    enviarMensagemTelegram(chatId, "❌ Erro ao mover: " + e.toString());
+  }
+  
+  return; // Encerra para não fazer mais nada
 }
